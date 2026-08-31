@@ -9,6 +9,15 @@ appears in the job list and renders in an interactive 3D view with load-case /
 quantity / colormap controls and a deformation-warp slider. result.vtp,
 result.csv and summary.json are served as real HTTP downloads.
 
+Same engine, two doors: the browser UI and a REST API --
+
+    POST /api/jobs                multipart/form-data, field "stl"  -> 202 {job, status}
+    GET  /api/jobs                every job with its status
+    GET  /api/jobs/<job>          status + summary + download links
+
+so curl / CI / another service can drive analyses without a browser. A toolbar
+switch flips the UI and the 3D viewport to dark mode.
+
 Serving pattern is the one measured to work on this headless box (see
 surrogate/utils/compare_server.py): VTK renders off-screen through EGL with the
 mesa software vendor -- immune to whatever holds the GPU -- and trame streams
@@ -50,6 +59,73 @@ QUANTITIES = {
 }
 CMAPS = ("coolwarm", "viridis", "inferno", "turbo")
 DOWNLOADABLE = ("result.vtp", "result.csv", "summary.json", "runner.log")
+
+# ---- job bookkeeping: module-level and pure, so the API surface is unit-testable
+# without a model, a checkpoint, or a running server. --------------------------------
+
+
+def sanitize_stem(filename: str) -> str:
+    """Filesystem-safe job stem from a user-supplied filename."""
+    return re.sub(r"[^A-Za-z0-9_.-]", "_", Path(filename).stem)[:40] or "job"
+
+
+def new_job_dir(jobs_dir: Path, filename: str, content: bytes) -> Path:
+    """Create <stamp>_<stem>/input.stl. Raises ValueError on invalid input."""
+    if not filename.lower().endswith(".stl"):
+        raise ValueError(f"'{filename}' is not an .stl file")
+    if not content:
+        raise ValueError("empty upload")
+    stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    jobdir = jobs_dir / f"{stamp}_{sanitize_stem(filename)}"
+    n = 0
+    while jobdir.exists():  # same-second uploads must not collide
+        n += 1
+        jobdir = jobs_dir / f"{stamp}_{sanitize_stem(filename)}_{n}"
+    jobdir.mkdir(parents=True)
+    (jobdir / "input.stl").write_bytes(content)
+    return jobdir
+
+
+def job_status(jobs_dir: Path, name: str, live: set[str]) -> str | None:
+    """'running' | 'done' | 'failed', or None for a job that does not exist."""
+    if name in live:
+        return "running"
+    d = jobs_dir / name
+    if not d.is_dir():
+        return None
+    return "done" if (d / "result.vtp").exists() else "failed"
+
+
+def completed_jobs(jobs_dir: Path) -> list[str]:
+    """Jobs with a result.vtp, newest first."""
+    dirs = [d for d in jobs_dir.iterdir() if d.is_dir() and (d / "result.vtp").exists()]
+    return [d.name for d in sorted(dirs, key=lambda d: d.stat().st_mtime, reverse=True)]
+
+
+def list_jobs(jobs_dir: Path, live: set[str]) -> list[dict]:
+    """Running jobs first, then completed, for GET /api/jobs."""
+    out = [{"job": n, "status": "running"} for n in sorted(live)]
+    out += [{"job": n, "status": "done"} for n in completed_jobs(jobs_dir)]
+    return out
+
+
+def job_payload(jobs_dir: Path, name: str, live: set[str]) -> dict | None:
+    """The GET /api/jobs/<job> body, or None for 404."""
+    status = job_status(jobs_dir, name, live)
+    if status is None:
+        return None
+    payload: dict = {"job": name, "status": status}
+    if status == "done":
+        sj = jobs_dir / name / "summary.json"
+        if sj.exists():
+            try:
+                payload["summary"] = json.loads(sj.read_text())
+            except json.JSONDecodeError:
+                payload["summary"] = {}
+        payload["downloads"] = [
+            f"/download/{name}/{f}" for f in DOWNLOADABLE if (jobs_dir / name / f).exists()
+        ]
+    return payload
 
 
 def setup_renderer(mode: str) -> None:
@@ -103,11 +179,6 @@ def main(argv: list[str] | None = None) -> int:
     live: set[str] = set()  # job names with a subprocess in flight
     cache: dict[str, dict] = {}  # job name -> {mesh, summary}
 
-    def job_names() -> list[str]:
-        """Completed jobs (result.vtp present), newest first."""
-        dirs = [d for d in jobs_dir.iterdir() if d.is_dir() and (d / "result.vtp").exists()]
-        return [d.name for d in sorted(dirs, key=lambda d: d.stat().st_mtime, reverse=True)]
-
     def load_job(name: str) -> dict | None:
         if name in cache:
             return cache[name]
@@ -144,9 +215,12 @@ def main(argv: list[str] | None = None) -> int:
         "full_range": False,
         "psize": 3,
         "warp": 0.0,
+        "dark": False,
     }
 
     def draw() -> None:
+        cap = "#dddddd" if ui["dark"] else "#333333"
+        pl.set_background("#1a1a1a" if ui["dark"] else "white")
         name = ui["job"]
         data = load_job(name) if name else None
         if data is None:
@@ -156,7 +230,7 @@ def main(argv: list[str] | None = None) -> int:
                 position="upper_left",
                 font_size=12,
                 name="caption",
-                color="#333333",
+                color=cap,
             )
             return
         mesh, base, summary = data["mesh"], data["points"], data["summary"]
@@ -204,7 +278,7 @@ def main(argv: list[str] | None = None) -> int:
             position="upper_left",
             font_size=10,
             name="caption",
-            color="#333333",
+            color=cap,
         )
 
     draw()
@@ -220,7 +294,7 @@ def main(argv: list[str] | None = None) -> int:
     server = get_server(client_type="vue3")
     state, ctrl = server.state, server.controller
 
-    state.jobs = job_names()
+    state.jobs = completed_jobs(jobs_dir)
     state.job = state.jobs[0] if state.jobs else ""
     state.status_text = f"{len(state.jobs)} completed job(s)"
     state.stl_file = None
@@ -235,39 +309,29 @@ def main(argv: list[str] | None = None) -> int:
             full_range=state.full_range,
             psize=state.psize,
             warp=state.warp,
+            dark=state.dark_mode,
         )
         draw()
         ctrl.view_update()
 
-    for key in ("job", "load_case", "quantity", "cmap", "full_range", "psize", "warp"):
+    for key in ("job", "load_case", "quantity", "cmap", "full_range", "psize", "warp", "dark_mode"):
         state.change(key)(refresh)
 
     async def _watch(proc, jobdir: Path) -> None:
         rc = await proc.wait()
         live.discard(jobdir.name)
         with state:
-            state.jobs = job_names()
+            state.jobs = completed_jobs(jobs_dir)
             if rc == 0 and (jobdir / "result.vtp").exists():
                 state.status_text = f"{jobdir.name}: done"
                 state.job = jobdir.name  # triggers refresh via state.change
             else:
                 state.status_text = f"{jobdir.name}: FAILED -- see runner.log in the job dir"
 
-    def start_job() -> None:
-        f = ClientFile(state.stl_file)
-        if not f or not f.name:
-            state.status_text = "pick an .stl file first"
-            return
-        if not f.name.lower().endswith(".stl"):
-            state.status_text = f"'{f.name}' is not an .stl file"
-            return
-        stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        stem = re.sub(r"[^A-Za-z0-9_.-]", "_", Path(f.name).stem)[:40]
-        jobdir = jobs_dir / f"{stamp}_{stem}"
-        jobdir.mkdir(parents=True)
-        (jobdir / "input.stl").write_bytes(f.content)
+    def launch_job(filename: str, content: bytes) -> str:
+        """One door for both the UI button and POST /api/jobs. Raises ValueError."""
+        jobdir = new_job_dir(jobs_dir, filename, content)
         live.add(jobdir.name)
-        state.status_text = f"{jobdir.name}: running ..."
 
         async def _launch():
             log_fh = open(jobdir / "runner.log", "wb")  # noqa: SIM115 - lives with the proc
@@ -289,6 +353,19 @@ def main(argv: list[str] | None = None) -> int:
             log_fh.close()
 
         asyncio.get_event_loop().create_task(_launch())
+        return jobdir.name
+
+    def start_job() -> None:
+        f = ClientFile(state.stl_file)
+        if not f or not f.name:
+            state.status_text = "pick an .stl file first"
+            return
+        try:
+            name = launch_job(f.name, f.content)
+        except ValueError as e:
+            state.status_text = str(e)
+            return
+        state.status_text = f"{name}: running ..."
 
     ctrl.start_job = start_job
 
@@ -306,16 +383,75 @@ def main(argv: list[str] | None = None) -> int:
             path, headers={"Content-Disposition": f'attachment; filename="{job}_{fname}"'}
         )
 
+    # ---- REST API: the same launch_job the UI uses, over plain HTTP ------------
+    async def api_post_job(request):
+        if not (request.content_type or "").startswith("multipart/"):
+            return web.json_response(
+                {"error": "multipart/form-data with a file field 'stl' is required"}, status=400
+            )
+        # Streamed multipart, deliberately: request.post() enforces aiohttp's 1MB
+        # client_max_size, and a bracket STL is ~30MB.
+        reader = await request.multipart()
+        filename, content = None, b""
+        async for part in reader:
+            if part.name == "stl":
+                filename = part.filename or ""
+                chunks = []
+                while True:
+                    c = await part.read_chunk(1 << 20)
+                    if not c:
+                        break
+                    chunks.append(c)
+                content = b"".join(chunks)
+                break
+        if filename is None:
+            return web.json_response(
+                {"error": "multipart field 'stl' with a file is required"}, status=400
+            )
+        try:
+            name = launch_job(filename, content)
+        except ValueError as e:
+            return web.json_response({"error": str(e)}, status=400)
+        return web.json_response({"job": name, "status": "running"}, status=202)
+
+    async def api_list_jobs(request):
+        return web.json_response({"jobs": list_jobs(jobs_dir, live)})
+
+    async def api_get_job(request):
+        name = request.match_info["job"]
+        if not re.fullmatch(r"[A-Za-z0-9_.-]+", name):
+            return web.json_response({"error": "bad job name"}, status=400)
+        payload = job_payload(jobs_dir, name, live)
+        if payload is None:
+            return web.json_response({"error": "unknown job"}, status=404)
+        return web.json_response(payload)
+
     def on_server_bind(wslink_server):
-        wslink_server.app.add_routes([web.get("/download/{job}/{fname}", handle_download)])
+        wslink_server.app.add_routes(
+            [
+                web.get("/download/{job}/{fname}", handle_download),
+                web.post("/api/jobs", api_post_job),
+                web.get("/api/jobs", api_list_jobs),
+                web.get("/api/jobs/{job}", api_get_job),
+            ]
+        )
 
     ctrl.on_server_bind.add(on_server_bind)
 
     with SinglePageWithDrawerLayout(server) as layout:
         layout.title.set_text("DeepStaticSim")
+        # Vuetify 3 theme switch; the 3D viewport follows in draw().
+        layout.root.theme = ("dark_mode ? 'dark' : 'light'",)
         with layout.toolbar as tb:
             tb.density = "compact"
             v3.VSpacer()
+            v3.VSwitch(
+                v_model=("dark_mode", False),
+                label="dark",
+                density="compact",
+                hide_details=True,
+                classes="mx-2",
+            )
             v3.VSelect(
                 v_model=("job", state.job),
                 items=("jobs", state.jobs),

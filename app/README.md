@@ -101,3 +101,25 @@ uv run python utils/fetch_deepjeb.py --raw <DeepJEB dir> --root $DL_DATA
 uv run python utils/stats_deepjeb.py --root $DL_DATA
 uv run python train.py experiment=jeb_surface
 ```
+
+## REST API
+
+The web server doubles as a plain HTTP API (same engine, same jobs directory), so
+curl, CI, or another service can run analyses without a browser:
+
+```bash
+BASE=http://<host>:8090
+curl -F "stl=@bracket.stl" $BASE/api/jobs          # -> 202 {"job": "<name>", "status": "running"}
+curl $BASE/api/jobs                                 # -> {"jobs": [{"job": ..., "status": ...}]}
+curl $BASE/api/jobs/<name>                          # -> status + summary + download links
+curl -O $BASE/download/<name>/result.vtp            # the artifacts themselves
+```
+
+Statuses: `running` -> `done` (artifacts ready) or `failed` (see
+`/download/<name>/runner.log`). Uploads must be multipart/form-data with a file
+field named `stl` and an `.stl` filename.
+
+## Dark mode
+
+The toolbar's "dark" switch flips both the UI theme and the 3D viewport
+background; the setting is per browser session.
