@@ -19,7 +19,12 @@ from engine.utils import move_to_device
 from tests.conftest import config_names, load
 
 # model config -> data config it should be tested against.
-MODEL_DATA = {"mlp": "synthetic", "forecast": "series", "pinn": "collocation"}
+MODEL_DATA = {
+    "mlp": "synthetic",
+    "forecast": "series",
+    "pinn": "collocation",
+    "transolver_surface": "points_surface",
+}
 
 MODELS = config_names("model")
 

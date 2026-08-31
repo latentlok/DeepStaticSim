@@ -1,0 +1,13 @@
+# Synthetic point clouds shaped like the DeepJEB surface task. Lets the model's
+# contract tests run without the store mounted; swap for data=deepjeb_surface to train.
+# mask_channel: 0 marks ver_x invalid on odd items, so the masked-loss path is tested.
+_target_: dataset.points.PointCloudData
+n_points: 256
+fun_dim: 4
+out_dim: 16
+mask_channel: 0
+n_train: 8
+n_val: 2
+batch_size: 2
+num_workers: 0
+seed: 0

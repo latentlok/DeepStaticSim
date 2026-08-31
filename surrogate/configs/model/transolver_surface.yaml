@@ -1,0 +1,41 @@
+# Transolver on the DeepJEB bracket SURFACE.
+#
+#   inputs   position (3) + normal (3) + area (1)          -> fun_dim 4
+#   targets  16 channels, all four load cases at once (loads are identical for
+#            every design, so geometry is the only input and one forward predicts
+#            everything):
+#
+#     idx  0  1  2   3           4  5  6   7           8  9 10  11          12 13 14  15
+#          ver_disp   ver_stress hor_disp   hor_stress dia_disp   dia_stress tor_disp   tor_stress
+#          x  y  z    (signed vM)                                   ...
+#
+#   ver_disp x (idx 0) comes from the csv and is missing for some designs -- the
+#   batch's y_mask marks it invalid and masked_rel_l2 excludes it (models/transolver.py).
+_target_: models.transolver.Transolver
+
+loss: rel_l2 # rel_l2 | mse | l1 -- rel_l2 is the PDE-surrogate standard
+
+net:
+  space_dim: 3
+  fun_dim: 4 # normal(3) + area(1); set 0 to run geometry-only
+  out_dim: 16
+
+  n_layers: 8 # Transolver blocks
+  n_hidden: 256 # channel width C, must divide by n_head
+  n_head: 8
+  slice_num: 32 # G. The whole cost argument: attention is G x G, never N x N
+  mlp_ratio: 2
+  dropout: 0.0
+  act: gelu
+
+  # Distance-to-lattice positional encoding. Off by default: it adds ref^3 = 512
+  # input channels and the surface normal already orients a point on the body.
+  unified_pos: false
+  ref: 8
+  # Measured over all DeepJEB_50 designs (mm): x[-39, 71] y[-165, 21] z[0.2, 65.5].
+  pos_bounds: [[-40.0, 71.0], [-165.0, 22.0], [0.0, 66.0]]
+
+# From configs/optim/ and configs/sched/, so `optim.lr=3e-4` works without touching
+# this file. oc.select because `sched: null` is the default and plain ${sched} raises.
+optim: ${optim}
+sched: ${oc.select:sched,null}
