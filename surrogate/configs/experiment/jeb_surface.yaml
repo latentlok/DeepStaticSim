@@ -1,0 +1,27 @@
+# @package _global_
+# Transolver on the DeepJEB bracket surface: the 35 csv-complete designs (27/4/4
+# split), 4 static load cases at
+# once (16 channels), windows of 16384 surface points.
+#
+#   export DL_DATA=/home/shared/resources/datasets/JEBsim/processed   # store + stats
+#   uv run python train.py experiment=jeb_surface
+#
+# Overfit gate (no debug=overfit here -- that file tunes the synthetic sets):
+#   uv run python train.py experiment=jeb_surface data.samples_per_run=1 \
+#       trainer.max_steps=400   # 40 fixed windows; train rel_l2 must collapse
+defaults:
+  - override /model: transolver_surface
+  - override /data: deepjeb_surface
+  - override /sched: cosine
+
+exp_name: jeb_surface
+seed: 0
+
+sched:
+  T_max: ${trainer.max_steps} # cosine over the whole run, in optimizer steps
+
+trainer:
+  max_steps: 20000
+  log_every: 50
+  val_every: 500
+  clip_grad: 1.0

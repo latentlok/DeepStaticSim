@@ -358,6 +358,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--root", type=Path, required=True, help="processed data root ($DL_DATA)")
     p.add_argument("--only", nargs="*", default=None, help="subset of design ids")
     p.add_argument("--force", action="store_true", help="rewrite designs already in the store")
+    p.add_argument("--n-val", type=int, default=4, help="designs held out for validation")
+    p.add_argument("--n-test", type=int, default=4, help="designs held out for test")
     a = p.parse_args(argv)
 
     logging.basicConfig(
@@ -379,7 +381,13 @@ def main(argv: list[str] | None = None) -> int:
     if splits_path.exists():
         log.info("splits.json already exists, leaving it alone")
     else:
-        splits = make_splits(all_ids)
+        # Split over COMPLETE designs only (csv present, so all 16 channels are
+        # real): the user's call -- no zero-filled ver_x in any split. Designs
+        # without a csv are still written to the store but stay unsplit until
+        # their csvs arrive and the split is deliberately regenerated.
+        complete = [i for i in all_ids if (a.raw / "Field" / f"{i}.csv").exists()]
+        log.info("%d/%d designs are csv-complete; splitting those", len(complete), len(all_ids))
+        splits = make_splits(complete, n_val=a.n_val, n_test=a.n_test)
         splits_path.write_text(json.dumps(splits, indent=2))
         log.info(
             "wrote %s: %d train / %d val / %d test",
