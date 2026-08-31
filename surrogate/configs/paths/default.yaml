@@ -1,0 +1,20 @@
+# Where things live. The data is NOT in the repo.
+#
+# Both paths are plain strings and must NOT chain to ${hydra:...}:
+#   * output_root feeds hydra.sweep.dir, which resolves BEFORE HydraConfig exists --
+#     a hydra-resolver there fails on --multirun ("HydraConfig was not set") while
+#     working fine for single runs.
+#   * data_root is read by the test suite through hydra.compose(), where HydraConfig
+#     is likewise unset.
+# chdir stays false, so CWD is the launch directory and a relative path is unambiguous.
+
+# The dataset root: an external disk, an NFS mount, a synced S3 prefix -- anywhere but
+# here. Set it once in your shell and every config follows:
+#
+#     export DL_DATA=/mnt/data/myproject
+#
+# Falls back to ./data so a fresh clone still runs. Override per run with
+# paths.data_root=/somewhere/else.
+data_root: ${oc.env:DL_DATA,data}
+
+output_root: outputs
