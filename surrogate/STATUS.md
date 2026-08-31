@@ -16,31 +16,37 @@ Updated 2026-08-31. Every number below was measured, not estimated.
   split). Val: 625_434, 630_268, 630_428, 633_321. Test: 625_433, 625_466, 633_55,
   634_291. The 15 csv-less designs sit in the store, unsplit.
 
-## Run
+## Runs
 
-`experiment=jeb_surface`, run `outputs/jeb_surface/2026-08-31_21-51-31_750439`:
-Transolver (8 layers, width 256, 8 heads, 32 slices, 4.9M params fun_dim 4 →
-out_dim 16), rel-L2 on normalized channels, AdamW 1e-3, cosine to 0 over 20k
-steps, clip 1.0, batch 1 × 16,384-point windows, 8 windows/design/epoch.
-31 min on the RTX 5090 (~10.7 steps/s). Best val/loss 0.2951 at step 5500
-(train kept improving to 0.071 — the val gap is the 27-design data budget
-talking, not a bug).
+| run | params | data | best val | test rel-L2 | test MAE |
+|---|---|---|---|---|---|
+| jeb_surface `2026-08-31_21-51-31` | 3.86M (8x256, G=32) | fixed 16k windows | 0.295 @5.5k | 0.381 | 7.08 |
+| jeb_surface_big (fixed windows, canceled) | 15.4M (8x512, G=64) | fixed 16k windows | 0.313 @8k | -- | -- |
+| **jeb_surface_big `2026-08-31_22-55-37`** | 15.4M (8x512, G=64) | **stochastic 32k windows** | **0.303 @12.5k** | **0.344** | **6.37** |
 
-## Results (best checkpoint, step 5500)
+All: rel-L2 loss on normalized channels, AdamW (1e-3 / 8e-4 for big), cosine to 0
+over 20k steps, clip 1.0, batch 1, 8 windows/design/epoch. Big run: 86 min on the
+RTX 5090. Fresh-windows-per-epoch measurably helped: the same 15.4M model with
+fixed windows was canceled at 0.313 best val while this one reached 0.303.
 
-| split | masked rel-L2 (norm.) | MAE (raw) | max-stress rel. err per case |
-|---|---|---|---|
-| val (during training) | 0.295 | 4.80 | dia 4.0%, hor 5.8% (others not logged at best step) |
-| **test** (4 designs, `eval.py`) | **0.381** | **7.08** | **ver 16.0%, hor 15.9%, dia 13.3%, tor 11.4%** |
+## Results (test split, 4 unseen designs, eval.py)
 
-Test per-channel rel-L2: displacements 0.16–0.32; stresses 0.39–0.53
-(ch1/ver_y 0.39 … ch7/hor_stress 0.53). Stress fields are the hard part, as
-expected — they are rougher than displacements.
+| metric | baseline 3.86M | big 15.4M (DEPLOYED) |
+|---|---|---|
+| masked rel-L2 (norm.) | 0.381 | **0.344** |
+| MAE (raw) | 7.08 | **6.37** |
+| max-stress rel err: ver | 16.0% | **11.0%** |
+| max-stress rel err: hor | 15.9% | **13.8%** |
+| max-stress rel err: dia | 13.3% | **12.2%** |
+| max-stress rel err: tor | **11.4%** | 23.2% |
 
-Honest read: with 27 training geometries this generalizes but is far from the
-paper's 1,900-design regime; peak-stress errors of 11–16% on unseen designs are
-a pipeline-proof, not a design tool yet. The pipeline (store, splits, stats,
-training, eval) is what this run certifies; accuracy scales with data.
+Per-channel (big): displacements 0.13-0.36, stresses 0.38-0.51. The big model
+wins loss, MAE, displacements and 3/4 peak-stress cases; TORSION PEAK REGRESSED
+(23.2% vs 11.4%) -- the one number the baseline still does better. Both
+checkpoints are kept; app/runner.py and app/server.py default to the big run.
+
+Honest read: 27 training geometries is the binding constraint; these are
+screening-grade errors, not sign-off-grade. Accuracy scales with data.
 
 ## Reproduce
 

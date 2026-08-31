@@ -43,7 +43,7 @@ from app.export import write_csv, write_summary, write_vtp  # noqa: E402
 
 DEFAULT_CKPT = (
     Path(__file__).resolve().parent.parent
-    / "surrogate/outputs/jeb_surface/2026-08-31_21-51-31_750439/ckpt/best_weights"
+    / "surrogate/outputs/jeb_surface_big/2026-08-31_22-55-37_1ee44e/ckpt/best_weights"
 )
 
 

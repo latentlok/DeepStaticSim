@@ -157,7 +157,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument(
         "--ckpt",
         type=Path,
-        default=SURROGATE / "outputs/jeb_surface/2026-08-31_21-51-31_750439/ckpt/best_weights",
+        default=SURROGATE / "outputs/jeb_surface_big/2026-08-31_22-55-37_1ee44e/ckpt/best_weights",
     )
     p.add_argument("--jobs-dir", type=Path, default=APP_DIR.parent / "app_data" / "jobs")
     p.add_argument("--device", default="cpu", help="cpu keeps the GPU free for training")
