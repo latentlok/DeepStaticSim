@@ -289,7 +289,7 @@ def main(argv: list[str] | None = None) -> int:
                 ctrl.view_reset_camera = view.reset_camera
 
     log.info("serving on http://%s:%d", host, a.port)
-    server.start(host=host, port=a.port, open_browser=False)
+    server.start(host=host, port=a.port, open_browser=False, timeout=0)
     return 0
 
 
