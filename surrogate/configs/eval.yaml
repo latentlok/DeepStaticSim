@@ -1,0 +1,44 @@
+# Evaluation entrypoint config.
+#
+#   python eval.py ckpt=outputs/e0/2026-08-03_14-22-05_a3f9c2/ckpt/best_weights
+#
+# model/ and data/ must match the checkpoint -- pass the same experiment=<name> you
+# trained with, or override the groups directly.
+defaults:
+  - _self_
+  - paths: default
+  - model: mlp
+  - data: synthetic
+  # Present so model configs can interpolate ${optim}. Evaluation never builds an
+  # optimizer, so which one this is has no effect on the numbers.
+  - optim: adamw
+  - sched: null
+  - trainer: default
+  - tracking: default
+  - experiment: null
+
+exp_name: eval
+seed: 42
+deterministic: false
+dtype: float32
+amp: none
+
+# Required. A checkpoint directory, usually .../ckpt/best_weights or .../ckpt/last.
+ckpt: null
+
+# validation_step (cheap, teacher-forced) or rollout_step (free-running)
+step: validation_step
+
+hydra:
+  run:
+    # INTO the run that produced the checkpoint, not a global outputs/eval/ tree.
+    # ckpt_run_dir walks up to the ckpt/ directory and takes its parent, so these
+    # metrics sit next to the .hydra/ config and the weights that made them. A
+    # separate eval tree is orphaned the moment an experiment has two runs.
+    dir: ${ckpt_run_dir:${ckpt}}/eval/${now:%Y-%m-%d_%H-%M-%S}
+  job:
+    chdir: false
+  job_logging:
+    handlers:
+      file:
+        filename: ${hydra.runtime.output_dir}/eval.log

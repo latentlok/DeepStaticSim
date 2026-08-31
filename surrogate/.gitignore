@@ -1,0 +1,33 @@
+# Run outputs and data are never committed -- runs are reproducible from configs,
+# and .hydra/ inside each run dir already records exactly what produced it.
+outputs/
+multirun/
+# The dataset lives outside the repo (DL_DATA); this only catches a local fallback.
+# The leading slash is load-bearing: a bare `data/` also matches configs/data/, which
+# silently drops every new data config from git.
+/data/
+*.zarr/
+*.pt
+*.safetensors
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+build/
+dist/
+
+# Tooling
+.pytest_cache/
+.ruff_cache/
+# graphify writes to ./graphify-out; `make graph` moves the result into .graphify/
+# so the repo root stays clean. The graph is committed, the cache is not.
+graphify-out/
+.graphify/cache/
+.ipynb_checkpoints/
+.DS_Store
+
+# Keep the lockfile and the Python pin: both are load-bearing for reproducibility.
+!uv.lock
+!.python-version
