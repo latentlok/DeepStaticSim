@@ -20,10 +20,12 @@ come from:
      variable's mean.
   3. The split is BY DESIGN, read from splits.json (written once by
      fetch_deepjeb.py) -- points from one bracket never straddle train/val/test.
-  4. Windows are a pure function of (seed, item index). Validation must be
-     comparable across evaluations; for training the price is that epochs repeat
-     the same `samples_per_run` windows per design, which at 8 windows x 16k
-     points against ~65k surface nodes still covers each design about twice over.
+  4. VALIDATION windows are a pure function of (seed, item index), so the metric
+     is comparable across evaluations. TRAIN windows are stochastic (a per-dataset
+     RNG advances every draw), so each epoch sees fresh windows of every design
+     rather than repeating the same `samples_per_run` slices -- with num_workers=0
+     the sequence is still reproducible from the seed. (num_workers>0 would fork
+     that RNG per worker; keep it 0, as configured.)
 
 The ver_x channel: designs whose csv was missing at fetch time store NaN in
 `ver_disp[:, 0]` and `attrs["ver_x_valid"] = False`. Here that becomes
@@ -86,9 +88,13 @@ class DesignPointSamples(Dataset):
         n_points: int,
         samples_per_run: int,
         seed: int,
+        stochastic: bool = False,
     ) -> None:
         self.path, self.designs = path, list(designs)
         self.n_points, self.samples_per_run, self.seed = n_points, samples_per_run, seed
+        self.stochastic = stochastic
+        # Advances on every draw -> fresh windows each epoch (train only).
+        self._rng = np.random.default_rng(seed * 999_983 + 17)
         self._store: Any = None  # opened lazily: zarr handles do not survive forking
 
     def __len__(self) -> int:
@@ -107,10 +113,14 @@ class DesignPointSamples(Dataset):
         design = self.designs[item % len(self.designs)]
         g = self._group(design)
         n_rows = g["position"].shape[0]  # zarr 3 arrays have no __len__
-        # A pure function of (seed, item): validation metrics stay comparable across
-        # evaluations, and a run is reproducible bit-for-bit from its config.
-        rng = np.random.default_rng(self.seed * 1_000_003 + item)
-        start = int(rng.integers(0, n_rows - self.n_points + 1))
+        if self.stochastic:
+            # Train: a fresh window every draw, so epochs do not repeat slices.
+            start = int(self._rng.integers(0, n_rows - self.n_points + 1))
+        else:
+            # Val/test: a pure function of (seed, item), so metrics stay
+            # comparable across evaluations and runs.
+            rng = np.random.default_rng(self.seed * 1_000_003 + item)
+            start = int(rng.integers(0, n_rows - self.n_points + 1))
 
         pos = self._read(g, "position", start)
         fx = np.concatenate([self._read(g, n, start) for n, _ in INPUT_VARS], axis=-1)
@@ -245,7 +255,7 @@ class DeepJEBData(DataModule):
         common = dict(path=path, n_points=n_points, seed=self.seed)
         if stage == "fit":
             self.train_ds = DesignPointSamples(
-                designs=train, samples_per_run=self.samples_per_run, **common
+                designs=train, samples_per_run=self.samples_per_run, stochastic=True, **common
             )
         # ONE fixed window per held-out design, so the metric is comparable design
         # to design and evaluation to evaluation.

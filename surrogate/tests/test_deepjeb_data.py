@@ -120,3 +120,14 @@ def test_windows_vary_within_epoch(tmp_path):
     n_designs = len(dm.train_ds.designs)
     a, b = dm.train_ds[0], dm.train_ds[n_designs]
     assert not torch.equal(a["pos"], b["pos"])
+
+
+def test_train_windows_differ_across_epochs_val_fixed(tmp_path):
+    dm = _module(_build(tmp_path))
+    # TRAIN: revisiting the same item on a second pass draws a different window.
+    first = [dm.train_ds[i]["pos"] for i in range(len(dm.train_ds))]
+    second = [dm.train_ds[i]["pos"] for i in range(len(dm.train_ds))]
+    assert any(not torch.equal(a, b) for a, b in zip(first, second, strict=True))
+    # VAL: the same item is the same window every time, forever.
+    v1, v2 = dm.val_ds[0], dm.val_ds[0]
+    assert torch.equal(v1["pos"], v2["pos"])

@@ -12,7 +12,7 @@ _target_: dataset.deepjeb.DeepJEBData
 root: ${paths.data_root}
 store: deepjeb.zarr
 
-n_points: 16384 # clamped to the smallest design in the split if larger
+n_points: 32768 # per window; smallest design has ~50k surface nodes, so this stays a subset
 samples_per_run: 8 # windows drawn per design per epoch
 val_split: val # which split the val loader serves: val | test (for eval.py)
 
