@@ -1,0 +1,17 @@
+# DeepStaticSim -- one service, one port, one volume.
+#
+#   cd deploy && docker compose up -d
+#
+# ./data must hold a training run directory's contents (.hydra/ + ckpt/) --
+# see DEPLOY.md step 2. Jobs persist in ./data/jobs across restarts.
+services:
+  deepstaticsim:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: deepstaticsim
+    ports:
+      - "8090:8090"
+    volumes:
+      - ./data:/data
+    restart: unless-stopped

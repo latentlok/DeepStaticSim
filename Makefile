@@ -1,7 +1,7 @@
 # DeepStaticSim — repo-root shortcuts. Everything runs inside surrogate/'s uv
 # environment (`uv run --no-sync` so a running server never races a lockfile
 # change). surrogate/ has its own Makefile for training-side chores.
-.PHONY: help app compare predict train test
+.PHONY: help app compare predict train test deploy
 
 DL_DATA ?= /home/shared/resources/datasets/JEBsim/processed
 CKPT    ?=
@@ -25,3 +25,6 @@ train:  ## train the surrogate (EXP=jeb_surface by default)
 
 test:  ## full test suite (surrogate + app tests, CPU)
 	cd surrogate && CUDA_VISIBLE_DEVICES="" uv run --no-sync pytest tests/ ../app/tests/ -q
+
+deploy:  ## build + run the full app container on :8090 (ships deploy/data as /data)
+	cd deploy && docker compose up -d --build && docker compose ps
