@@ -229,7 +229,7 @@ def main(argv: list[str] | None = None) -> int:
     def refresh(**_):
         ui.update(
             job=state.job or "",
-            case=state.case,
+            case=state.load_case,
             quantity=state.quantity,
             cmap=state.cmap,
             full_range=state.full_range,
@@ -239,7 +239,7 @@ def main(argv: list[str] | None = None) -> int:
         draw()
         ctrl.view_update()
 
-    for key in ("job", "case", "quantity", "cmap", "full_range", "psize", "warp"):
+    for key in ("job", "load_case", "quantity", "cmap", "full_range", "psize", "warp"):
         state.change(key)(refresh)
 
     async def _watch(proc, jobdir: Path) -> None:
@@ -327,7 +327,7 @@ def main(argv: list[str] | None = None) -> int:
                 classes="mx-1",
             )
             v3.VSelect(
-                v_model=("case", "ver"),
+                v_model=("load_case", "ver"),
                 items=("cases", [{"title": c, "value": c} for c in CASES]),
                 label="load case",
                 density="compact",
