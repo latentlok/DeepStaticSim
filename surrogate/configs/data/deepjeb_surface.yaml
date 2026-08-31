@@ -1,0 +1,23 @@
+# The DeepJEB bracket surface, from the zarr store outside the repo.
+#
+#   <data_root>/deepjeb.zarr/<id>/surface/{position, normal, area, ver_disp, ...}
+#   <data_root>/splits.json           <- written once by utils/fetch_deepjeb.py
+#   <data_root>/stats_surface.json    <- python utils/stats_deepjeb.py --root $DL_DATA
+#
+# An item is a WINDOW OF POINTS from one design, not a row: pick a bracket, then a
+# contiguous slice of its permuted rows -- a uniform surface sample costing one
+# zarr chunk. The channel order of y (16 wide) is fixed in dataset/deepjeb.py's
+# TARGET_VARS and matches models/transolver.py's CASES/STRESS_IDX.
+_target_: dataset.deepjeb.DeepJEBData
+root: ${paths.data_root}
+store: deepjeb.zarr
+
+n_points: 16384 # clamped to the smallest design in the split if larger
+samples_per_run: 8 # windows drawn per design per epoch
+val_split: val # which split the val loader serves: val | test (for eval.py)
+
+batch_size: 1
+num_workers: 0 # zarr reopens its chunk store per worker; raise once it is working
+pin_memory: false
+stats: null # null -> <root>/stats_surface.json, keyed by variable name
+seed: 0
