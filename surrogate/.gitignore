@@ -31,3 +31,4 @@ graphify-out/
 # Keep the lockfile and the Python pin: both are load-bearing for reproducibility.
 !uv.lock
 !.python-version
+app_data/
