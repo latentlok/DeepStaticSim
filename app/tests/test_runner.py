@@ -52,6 +52,9 @@ def test_stl_features_sphere(sphere_stl):
     assert (outward > 0).mean() > 0.9
     # vertex areas sum exactly to the surface area (the 1/3 rule)
     assert np.isclose(f["area"].sum(), f["area_mm2"], rtol=1e-5)
+    # the triangulation rides along so exports render as a surface
+    assert f["faces"].ndim == 2 and f["faces"].shape[1] == 3
+    assert f["faces"].max() < n
 
 
 def test_stl_features_merges_duplicate_vertices(tmp_path):
@@ -82,6 +85,9 @@ def test_run_job_writes_all_artifacts(tiny_model, sphere_stl, tmp_path):
 
     mesh = pv.read(out / "result.vtp")
     n = mesh.n_points
+    # a SURFACE, not a point cloud: triangles present, count matching the features
+    feats = runner.stl_features(sphere_stl)
+    assert mesh.n_cells == len(feats["faces"]) > 0
     for case in export.CASES:
         assert mesh[f"{case}_disp"].shape == (n, 3)
         assert mesh[f"{case}_disp_mag"].shape == (n,)

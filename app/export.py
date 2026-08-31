@@ -38,7 +38,14 @@ DISCLAIMER = (
 def write_vtp(path: Path, feats: dict, pred: np.ndarray) -> None:
     import pyvista as pv
 
-    cloud = pv.PolyData(np.asarray(feats["position"], dtype=np.float32))
+    points = np.asarray(feats["position"], dtype=np.float32)
+    if "faces" in feats:
+        # A real surface: the STL's own triangulation, so viewers shade an
+        # interpolated surface instead of drawing points.
+        f = np.asarray(feats["faces"], dtype=np.int64)
+        cloud = pv.PolyData(points, faces=np.hstack([np.full((len(f), 1), 3, np.int64), f]))
+    else:
+        cloud = pv.PolyData(points)
     for case in CASES:
         disp = pred[:, DISP_SLICE[case]]
         cloud[f"{case}_disp"] = disp.astype(np.float32)  # vector -> Warp By Vector

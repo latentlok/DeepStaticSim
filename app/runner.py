@@ -95,6 +95,7 @@ def stl_features(stl_path: Path) -> dict:
     if vol6 < 0:
         cross = -cross
         vol6 = -vol6
+        faces = faces[:, [0, 2, 1]]  # keep the exported triangulation outward too
     fa = 0.5 * np.linalg.norm(cross, axis=1)
     if not fa.sum() > 0:
         raise ValueError(f"{stl_path}: degenerate surface (zero total area)")
@@ -111,6 +112,9 @@ def stl_features(stl_path: Path) -> dict:
         "position": v.astype(np.float32),
         "normal": vn.astype(np.float32),
         "area": va[:, None].astype(np.float32),
+        # The true triangulation, kept so result.vtp is a renderable SURFACE with
+        # interpolated shading rather than a point cloud. The model never sees it.
+        "faces": faces.astype(np.int64),
         "volume_mm3": float(vol6 / 6.0),
         "area_mm2": float(fa.sum()),
     }
