@@ -7,3 +7,4 @@ __pycache__/
 .DS_Store
 app_data/
 deploy/data/
+deploy/model/

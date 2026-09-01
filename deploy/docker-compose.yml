@@ -1,17 +1,26 @@
-# DeepStaticSim -- one service, one port, one volume.
+# DeepStaticSim -- pre-built image, one service, one port, one volume. No build.
 #
-#   cd deploy && docker compose up -d
+#   cd deploy && docker compose up -d        # then open http://<host>:8090
 #
-# ./data must hold a training run directory's contents (.hydra/ + ckpt/) --
-# see DEPLOY.md step 2. Jobs persist in ./data/jobs across restarts.
+# GPU: the `deploy.resources` block hands every NVIDIA GPU to the container
+# (needs the host driver + nvidia-container-toolkit; the Deep Learning AMI has
+# both). On a CPU-only box, delete that block -- the image detects the missing
+# GPU and runs inference on CPU, still seconds per bracket.
 services:
   deepstaticsim:
-    build:
-      context: ..
-      dockerfile: deploy/Dockerfile
-    image: deepstaticsim
+    image: ghcr.io/latentlok/deepstaticsim:latest
     ports:
       - "8090:8090"
     volumes:
-      - ./data:/data
+      - dss_jobs:/data/jobs
     restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+volumes:
+  dss_jobs:
