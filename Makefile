@@ -3,7 +3,7 @@
 # change). surrogate/ has its own Makefile for training-side chores.
 .PHONY: help app compare predict train test deploy
 
-DL_DATA ?= /home/shared/resources/datasets/JEBsim/processed
+DL_DATA ?= ./data/processed
 CKPT    ?=
 
 help:  ## list targets

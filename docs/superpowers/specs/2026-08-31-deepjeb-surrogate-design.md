@@ -8,7 +8,7 @@ Date: 2026-08-31. Approved in conversation (Transolver surface model, template f
 A surrogate that maps a jet-engine-bracket **surface geometry** to per-node structural
 response fields (displacement + signed von Mises stress for 4 fixed load cases), so a
 later frontend can accept an STL and visualize predicted fields. Trained on the local
-DeepJEB_50 subset (50 designs) at `/home/shared/resources/datasets/JEBsim/DeepJEB_50`.
+DeepJEB_50 subset (50 designs) at `$DEEPJEB_RAW`.
 
 Loads and BCs are identical for every design (verified by diffing OptiStruct decks:
 4 bolted holes RBE2+SPC; Fz 35585.77 N, Fx −37809.9 N, diagonal 42258.12 N,
@@ -29,7 +29,7 @@ DeepStaticSim/            git root (already initialized, branch main)
 ```
 
 Template conventions all hold: data outside the repo at `$DL_DATA`
-(=`/home/shared/resources/datasets/JEBsim/processed`), normalisation in model buffers
+(default `./data/processed`), normalisation in model buffers
 via `on_data_ready`, stats read from a file never computed in `setup()`, zarr only.
 
 ## Preprocessing (`utils/fetch_deepjeb.py`)

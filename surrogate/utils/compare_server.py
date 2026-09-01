@@ -148,7 +148,11 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--store", default="deepjeb.zarr")
     p.add_argument("--split", default="test", choices=("test", "val"))
     p.add_argument("--device", default="cpu", help="cpu keeps the GPU free for training")
-    p.add_argument("--host", default=None, help="default: this host's tailscale IP")
+    p.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="bind address; 0.0.0.0 for containers/LAN, 'tailscale' to bind this host's tailnet IP",
+    )
     p.add_argument("--port", type=int, default=8081)
     p.add_argument(
         "--renderer",
@@ -159,7 +163,7 @@ def main(argv: list[str] | None = None) -> int:
     a = p.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
 
-    host = a.host or tailscale_ip() or "127.0.0.1"
+    host = (tailscale_ip() or "127.0.0.1") if a.host == "tailscale" else a.host
 
     setup_renderer(a.renderer)
     import pyvista as pv
@@ -237,7 +241,9 @@ def main(argv: list[str] | None = None) -> int:
                 "prediction": f"prediction   rel L2 {rel:.3f}",
                 "|error|": f"|error|   p98 {e_hi:.3g} {units}",
             }[pane]
-            pl.add_text(title, position="upper_left", font_size=10, name=f"cap_{col}", color="#333333")
+            pl.add_text(
+                title, position="upper_left", font_size=10, name=f"cap_{col}", color="#333333"
+            )
 
     draw()
     pl.link_views()

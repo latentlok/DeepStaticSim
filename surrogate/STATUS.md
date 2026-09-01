@@ -4,7 +4,7 @@ Updated 2026-08-31. Every number below was measured, not estimated.
 
 ## Data
 
-- Source: `/home/shared/resources/datasets/JEBsim/DeepJEB_50` (50 designs; the full
+- Source: `$DEEPJEB_RAW` (50 designs; the full
   DeepJEB is 2,138 — this is a deliberate small subset).
 - Store: `$DL_DATA/deepjeb.zarr`, written by `utils/fetch_deepjeb.py`, which repairs
   three measured defects of the raw h5 (fields misaligned with the mesh, garbage
@@ -51,8 +51,8 @@ screening-grade errors, not sign-off-grade. Accuracy scales with data.
 ## Reproduce
 
 ```bash
-export DL_DATA=/home/shared/resources/datasets/JEBsim/processed
-uv run python utils/fetch_deepjeb.py --raw /home/shared/resources/datasets/JEBsim/DeepJEB_50 --root $DL_DATA
+export DL_DATA=./data/processed
+uv run python utils/fetch_deepjeb.py --raw $DEEPJEB_RAW --root $DL_DATA
 uv run python utils/stats_deepjeb.py --root $DL_DATA
 uv run python train.py experiment=jeb_surface
 uv run python eval.py experiment=jeb_surface ckpt=outputs/jeb_surface/<run>/ckpt/best_weights data.val_split=test

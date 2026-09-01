@@ -13,8 +13,8 @@
 ## Global Constraints
 
 - All commands run from `surrogate/` with `uv run …`; repo git root is `DeepStaticSim/`.
-- Raw data (read-only): `/home/shared/resources/datasets/JEBsim/DeepJEB_50` — 50 designs; every design has `FieldMesh/<id>.h5`, `VolumeMesh/<id>.vtk`; 35 have `Field/<id>.csv`.
-- Processed data root: `DL_DATA=/home/shared/resources/datasets/JEBsim/processed` (never inside the repo).
+- Raw data (read-only): `$DEEPJEB_RAW` — 50 designs; every design has `FieldMesh/<id>.h5`, `VolumeMesh/<id>.vtk`; 35 have `Field/<id>.csv`.
+- Processed data root: `DL_DATA=./data/processed` (never inside the repo).
 - Template conventions (surrogate/CLAUDE.md) are binding: stats from a file, normalisation in model buffers via `on_data_ready`, `@hydra.main` stays in root `train.py`/`eval.py`, zarr only.
 - Channel order (fixed everywhere): `y = [ver_disp x,y,z, ver_stress, hor_disp x,y,z, hor_stress, dia_disp x,y,z, dia_stress, tor_disp x,y,z, tor_stress]` → 16 channels; stress indices 3, 7, 11, 15; `ver_x` is index 0 and is the only maskable channel.
 - Units stay raw: mm, MPa. `pos_bounds` for the model: `[[-40, 71], [-165, 22], [0, 66]]`.
@@ -36,7 +36,7 @@
 - [ ] **Step 1: Copy the template**
 
 ```bash
-cd /home/vishal/Documents/projects/DeepStaticSim
+cd <repo>
 rsync -a --exclude .git --exclude .venv --exclude outputs --exclude .pytest_cache \
   --exclude .ruff_cache --exclude __pycache__ --exclude .graphify --exclude graphify-out \
   ../deeplearning-template/ surrogate/
@@ -369,8 +369,8 @@ optim:
 - [ ] **Step 2: Run the pipeline on real data** (each command must be run and its output read, not assumed):
 
 ```bash
-export DL_DATA=/home/shared/resources/datasets/JEBsim/processed
-uv run python utils/fetch_deepjeb.py --raw /home/shared/resources/datasets/JEBsim/DeepJEB_50 --root $DL_DATA
+export DL_DATA=./data/processed
+uv run python utils/fetch_deepjeb.py --raw $DEEPJEB_RAW --root $DL_DATA
 # expect: 50 designs written, 35 with ver_x, 0 alignment refusals; splits.json 40/5/5
 uv run python utils/stats_deepjeb.py --root $DL_DATA
 ```

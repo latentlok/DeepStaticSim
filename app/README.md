@@ -33,8 +33,9 @@ displacement vector `{case}_disp` (mm, x/y/z) and a signed von Mises stress
 ## Honest limits — read before trusting a number
 
 - Trained on **27 designs** of one bracket family. On 4 held-out designs the
-  mean relative field error (rel-L2) is **~0.38**, and the **peak-stress error
-  is 11–16%** per load case. That is screening accuracy, not sign-off accuracy.
+  deployed model's mean relative field error (rel-L2) is **0.344**, and the
+  **peak-stress error is 11–14%** for the vertical/horizontal/diagonal cases and
+  **23% for torsion** (see `surrogate/STATUS.md`). Screening accuracy, not sign-off.
 - **Not a certified analysis.** Use it to rank design candidates and spot
   hot-spot locations, then run real FEA on the winners.
 - Geometry outside the family — different mounting, different scale, a part
@@ -56,9 +57,11 @@ make predict STL=/path/to/bracket.stl      # writes to jobs/<stl-name>/
 make predict STL=/path/to/bracket.stl OUT=/tmp/myjob
 ```
 
-Both use the checkpoint under
-`surrogate/outputs/jeb_surface/<run>/ckpt/best_weights` (pass `--ckpt` to the
-underlying scripts to pick another run).
+Both default to the deployed checkpoint's run directory under `surrogate/outputs/`
+(pass `--ckpt <run>/ckpt/best_weights` to the underlying scripts to pick another run;
+published runs are GitHub Release assets — see the root README). No build, no local
+Python at all: `docker run -p 8090:8090 ghcr.io/latentlok/deepstaticsim:latest`
+(add `--gpus all` on a GPU host) — details in `deploy/DEPLOY.md`.
 
 ## What a job produces
 

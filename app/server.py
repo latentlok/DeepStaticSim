@@ -1,7 +1,7 @@
 """DeepStaticSim web app: upload an STL, run the surrogate, inspect the fields.
 
-    cd surrogate && uv run --no-sync python ../app/server.py            # tailscale
-    cd surrogate && uv run --no-sync python ../app/server.py --host 127.0.0.1
+    cd surrogate && uv run --no-sync python ../app/server.py                 # 127.0.0.1:8090
+    cd surrogate && uv run --no-sync python ../app/server.py --host 0.0.0.0  # LAN / container
 
 Browser flow: pick an .stl -> Run -> the runner CLI (app/runner.py) executes in a
 subprocess (CPU by default, so GPU training is untouched) -> the finished job
@@ -151,7 +151,11 @@ def tailscale_ip() -> str | None:
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    p.add_argument("--host", default=None, help="default: this host's tailscale IP")
+    p.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="bind address; 0.0.0.0 for containers/LAN, 'tailscale' to bind this host's tailnet IP",
+    )
     p.add_argument("--port", type=int, default=8090)
     p.add_argument("--renderer", default="mesa", choices=("mesa", "nvidia", "xvfb"))
     p.add_argument(
@@ -164,7 +168,7 @@ def main(argv: list[str] | None = None) -> int:
     a = p.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
 
-    host = a.host or tailscale_ip() or "127.0.0.1"
+    host = (tailscale_ip() or "127.0.0.1") if a.host == "tailscale" else a.host
     jobs_dir: Path = a.jobs_dir
     jobs_dir.mkdir(parents=True, exist_ok=True)
     runner = APP_DIR / "runner.py"

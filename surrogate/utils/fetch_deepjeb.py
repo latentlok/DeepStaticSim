@@ -1,7 +1,7 @@
 """DeepJEB_50 raw files -> $DL_DATA/deepjeb.zarr + splits.json.
 
     uv run python utils/fetch_deepjeb.py \
-        --raw /home/shared/resources/datasets/JEBsim/DeepJEB_50 --root $DL_DATA
+        --raw $DEEPJEB_RAW --root $DL_DATA
 
 Per design this reads FieldMesh/<id>.h5 (mesh + fields), VolumeMesh/<id>.vtk
 (coordinates in node-ID order) and, when present, Field/<id>.csv (the only source
