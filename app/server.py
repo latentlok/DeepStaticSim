@@ -571,6 +571,10 @@ def main(argv: list[str] | None = None) -> int:
                 ctrl.view_reset_camera = view.reset_camera
 
     log.info("jobs dir %s | runner %s | ckpt %s", jobs_dir, runner, a.ckpt)
+    # trame re-parses sys.argv with its own CLI and honours the host kwarg only
+    # when its own --host is still the default, so `--host tailscale` would reach
+    # wslink verbatim and fail to resolve. Our flags are already parsed; hide them.
+    sys.argv = sys.argv[:1]
     log.info("serving on http://%s:%d", host, a.port)
     server.start(host=host, port=a.port, open_browser=False, timeout=0)
     return 0

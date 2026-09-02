@@ -196,7 +196,6 @@ class RunMeta:
             "config_hash": config_hash,
             "started": datetime.now(UTC).isoformat(timespec="seconds"),
             "status": "running",
-            "hostname": os.uname().nodename,
             "world_size": int(os.environ.get("WORLD_SIZE", 1)),
             "torch": torch.__version__,
             "metrics": {},

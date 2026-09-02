@@ -146,7 +146,18 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--ckpt", type=Path, default=None, help="default: newest */*/ckpt/best_weights")
     p.add_argument("--root", type=Path, default=None, help="default: $DL_DATA")
     p.add_argument("--store", default="deepjeb.zarr")
-    p.add_argument("--split", default="test", choices=("test", "val"))
+    p.add_argument(
+        "--split",
+        default="test",
+        choices=("test", "val", "train"),
+        help="train shows the fit on data the model saw -- the underfitting check",
+    )
+    p.add_argument(
+        "--designs",
+        default=None,
+        help="comma-separated design ids to serve; default: the whole split "
+        "(startup predicts every one, so narrow this on the 27-design train split)",
+    )
     p.add_argument("--device", default="cpu", help="cpu keeps the GPU free for training")
     p.add_argument(
         "--host",
@@ -178,6 +189,12 @@ def main(argv: list[str] | None = None) -> int:
 
     store = open_store(root / a.store)
     designs = json.loads((root / "splits.json").read_text())[a.split]
+    if a.designs:
+        want = [d.strip() for d in a.designs.split(",") if d.strip()]
+        missing = [d for d in want if d not in designs]
+        if missing:
+            raise SystemExit(f"not in the {a.split} split: {', '.join(missing)}")
+        designs = want
 
     ckpt = a.ckpt or latest_best_weights(Path(__file__).resolve().parent.parent / "outputs")
     model, _ = load_model(Path(ckpt), a.device)
@@ -294,6 +311,10 @@ def main(argv: list[str] | None = None) -> int:
                 ctrl.view_update = view.update
                 ctrl.view_reset_camera = view.reset_camera
 
+    # trame re-parses sys.argv with its own CLI and honours the host kwarg only
+    # when its own --host is still the default, so `--host tailscale` would reach
+    # wslink verbatim and fail to resolve. Our flags are already parsed; hide them.
+    sys.argv = sys.argv[:1]
     log.info("serving on http://%s:%d", host, a.port)
     server.start(host=host, port=a.port, open_browser=False, timeout=0)
     return 0
